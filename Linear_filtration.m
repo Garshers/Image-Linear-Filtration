@@ -28,7 +28,6 @@ function process_image()
 
     apply_filter(img, 'average', 3, output_dir1, filename, '');
     apply_filter(img, 'gaussian', 3, output_dir1, filename, '');
-    apply_filter(img, 'unsharp', 3, output_dir1, filename, '');
     apply_filter(img, 'laplacian', 3, output_dir1, filename, '');
 
     % Add Gaussian noise
@@ -51,7 +50,19 @@ function process_image()
     end
 
     % High-pass filter - unsharp mask
-    apply_filter(img, 'unsharp', 3, output_dir3, filename, '');
+    filtered_img = apply_filter(img, 'unsharp', 3, output_dir3, filename, '');
+
+    stretched_img = histogram_stretch(filtered_img);
+    imwrite(stretched_img, fullfile(output_dir3, 'stretched_img.png'));
+
+    clipped_stretched_img = histogram_stretch_with_clipping(filtered_img);
+    imwrite(clipped_stretched_img, fullfile(output_dir3, 'clipped_stretched_img.png'));
+
+    % Summary
+    fprintf('Original Image k4 variable: %.4f\n\n', calculate_k4(img));
+    fprintf('Filtered Image k4 variable: %.4f\n\n', calculate_k4(filtered_img));
+    fprintf('Stretched-Filtered Image k4 variable: %.4f\n\n', calculate_k4(stretched_img));
+    fprintf('Clipped-Stretched-Filtered Image k4 variable: %.4f\n\n', calculate_k4(clipped_stretched_img));
 end
 
 
@@ -100,6 +111,37 @@ function filtered_img = apply_filter(img, filter_type, filter_size, output_dir, 
     % Save image
     imwrite(filtered_img, fullfile(output_dir, [prefix '.png']));
     imwrite((img-filtered_img), fullfile(output_dir, [prefix '-Id' '.png']));
+end
+
+function stretched_img = histogram_stretch(img)
+    % Calculate the minimum and maximum pixel values
+    min_val = double(min(img(:)));
+    max_val = double(max(img(:)));
+    
+    % Perform histogram stretching
+    stretched_img = uint8(255 * (double(img) - min_val) / (max_val - min_val));
+end
+
+function clipped_stretched_img = histogram_stretch_with_clipping(img)
+    % Clip the image values
+    clipped_img = histeq(img);
+    
+    % Histogram stretching on the clipped image
+    clipped_stretched_img = histogram_stretch(clipped_img);
+end
+
+
+function k4 = calculate_k4(img)
+    if size(img, 3) == 3
+        img = rgb2gray(img);
+    end
+    img_double = double(img);
+
+    [M, N] = size(img);
+    mean_val = mean(img_double(:));
+    
+    % Calculate Michelson variable k4
+    k4 = (4 / (255^2 * M * N)) * sum((img_double(:) - mean_val).^2);
 end
 
 process_image();
